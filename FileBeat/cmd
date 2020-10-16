@@ -1,0 +1,19 @@
+docker build -t file_beat-prd:1.0 .
+docker container stop file_beat-prd
+docker container rm file_beat-prd
+
+
+docker run -v '/var/lib/docker/containers:/usr/share/dockerlogs/data:ro' -v '/var/run/docker.sock:/var/run/docker.sock' --network elk_elk_stack --name file_beat-prd file_beat-prd:1.0
+
+
+
+docker run   --volume="/var/lib/docker/containers:/var/lib/docker/containers:ro" --link elastic_search-prd:es --volume="/var/run/docker.sock:/var/run/docker.sock:ro"  -e -strict.perms=false --name file_beat-prd file_beat-prd:1.0
+
+docker run   --volume="/var/lib/docker/containers:/var/lib/docker/containers:ro" --link elastic_search-prd:es --volume="/var/run/docker.sock:/var/run/docker.sock:ro"  --name file_beat-prd file_beat-prd:1.0
+
+docker run --env-file .env.prd  -p 50001:80/tcp --name cloud_base-prd --dns 10.0.0.1 --dns 10.0.0.2 --dns-search cloud --hostname docker4 cloud_base-prd:latest
+
+
+docker run -p 9200:9200 -p 9300:9300 --name elastic_search-prd -e "discovery.type=single-node" elastic_search-prd:latest
+
+

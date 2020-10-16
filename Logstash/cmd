@@ -1,0 +1,25 @@
+
+
+
+docker build -t logstash-prd:latest .
+docker container stop logstash-prd
+docker container rm logstash-prd
+
+
+docker run --name logstash-prd --link elastic_search-prd:es -p 5044:5044 logstash-prd:latest
+
+
+
+
+
+docker run --env-file .env.prd  -p 50001:80/tcp --name cloud_base-prd --dns 10.0.0.1 --dns 10.0.0.2 --dns-search cloud --hostname docker4 cloud_base-prd:latest
+
+
+docker run -p 9200:9200 -p 9300:9300 --name elastic_search-prd -e "discovery.type=single-node" elastic_search-prd:latest
+
+
+
+
+ beats {
+    port => 5044
+  }

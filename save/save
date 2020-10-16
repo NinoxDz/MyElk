@@ -1,0 +1,78 @@
+
+input {
+  file {
+                path => "/containers/*/*-json.log"
+                max_open_files => 1024
+  }
+}
+
+
+filter {
+  json {
+                source => "message"
+                skip_on_invalid_json => true
+        }
+  mutate {
+    rename => ["log", "message"]
+                remove_field => ["stream", "time"]
+  }
+        grok {
+                        match => {
+                                "message" => "<%{POSINT:syslog_pri}>1 (?:%{SYSLOGTIMESTAMP:timestamp}|%{TIMESTAMP_ISO8601:timestamp}) (?:%{SYSLOGFACILITY} )?%{SYSLOGHOST:logsource} %{NOTSPACE:app_name} %{NOTSPACE:procid} %{NOTSPACE:msgid} (?:(?<sd>-)|\[%{DATA:sd}\])(?:\s+(?:(geoip %{IP:ip})|(%{GREEDYDATA:msg})))?"
+                        }
+        }
+        syslog_pri {}
+        date {match => [ "timestamp", "ISO8601", "yyyy-MM-dd*HH:mm:ss.SSSSSSZZ"]}
+        if [syslog_facility] == "local0" {
+      mutate { add_field => {"env" => "dev"} }
+        }
+                else if [syslog_facility] == "local1" {
+      mutate { add_field => {"env" => "tst"} }
+        }
+        else if [syslog_facility] == "local2" {
+      mutate { add_field => {"env" => "prd"} }
+        }
+        else if [syslog_facility] == "local3" {
+      mutate { add_field => {"env" => "gw"} }
+        }
+        else {
+      mutate {add_field => {"env" => "error"}}
+        }
+  mutate {
+    lowercase => [ "app_name" ]
+                remove_field => [
+                        "timestamp",
+                        "syslog_facility_code",
+                        "syslog_severity_code",
+                        "path"
+                ]
+                #gsub => [
+        #               "env", "[\"*\\<|,>/?]", "_",
+        #               "app_name", "[\"*\\<|,>/?]", "_"
+#               ]
+  }
+}
+
+
+
+
+output {
+        if "_grokparsefailure" in [tags] {
+                file {
+                        path => "/logs/error.log"
+                        codec => line {format => "%{message}"}
+                }
+        }
+        else {
+                elasticsearch {
+                        index => "env_%{env}_%{app_name}"
+                        hosts => "docker2:9200"
+                        user => "elastic"
+                        password => "taupe007"
+                }
+                file {
+                        path => "/logs/env_%{env}_%{app_name}.log"
+                        codec => line {format => "%{message}"}
+                }
+        }
+}
